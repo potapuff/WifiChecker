@@ -48,7 +48,7 @@ public class ScrollingActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_scrolling);
 
-        WifiList = new ArrayList<HashMap<String, String>>();
+        WifiList = new ArrayList<>();
 
         wifiAdapter = new WifiAdapter(ScrollingActivity.this, WifiList);
         ListView userList = (ListView) findViewById(R.id.list);

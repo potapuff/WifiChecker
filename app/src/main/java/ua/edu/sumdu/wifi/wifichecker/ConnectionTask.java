@@ -15,19 +15,19 @@ import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.content.Context.WIFI_SERVICE;
 
 
-public class ConnectionTask extends AsyncTask<String, Integer, Long> {
+public class ConnectionTask extends AsyncTask<String, Integer, String> {
 
     private final String TAG = "wifichecker:TASK";
 
     @SuppressLint("StaticFieldLeak")
     private ScrollingActivity mContext;
 
+    // https://stackoverflow.com/questions/9570237/android-check-internet-connection
     private boolean isInternetAvailable() {
         Log.i(TAG, "Detecting an internet");
         try {
             final InetAddress address = InetAddress.getByName("www.google.com");
             Log.i(TAG, "adress: "+address.toString());
-            Log.i(TAG, address.equals("") ? "NO" : "YES");
             return !address.equals("");
         } catch (UnknownHostException e) {
             /* Log error */
@@ -41,9 +41,9 @@ public class ConnectionTask extends AsyncTask<String, Integer, Long> {
     }
 
     @Override
-    protected Long doInBackground(String... params) {
-        Log.i(TAG, "Start checking task for "+params[0]);
+    protected String doInBackground(String... params) {
         String ssid = params[0];
+        Log.i(TAG, "Start checking task for "+ssid);
         try {
             mContext.setStatus(ssid, "connection testing...");
             WifiManager wifiManager = (WifiManager) mContext.getApplicationContext().getSystemService(WIFI_SERVICE);
@@ -52,15 +52,19 @@ public class ConnectionTask extends AsyncTask<String, Integer, Long> {
             wifiConfig.preSharedKey = String.format("\"%s\"", "");
 
             wifiManager.setWifiEnabled(true);
-
+            Log.i(TAG, "Try connect to "+ssid);
             int netId = wifiManager.addNetwork(wifiConfig);
             wifiManager.disconnect();
             wifiManager.enableNetwork(netId, true);
             wifiManager.reconnect();
-            ConnectivityManager connManager = (ConnectivityManager) mContext.getSystemService(CONNECTIVITY_SERVICE);
-            NetworkInfo wifi = connManager.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
 
-            if (wifi.isConnected()) {
+            ConnectivityManager connManager = (ConnectivityManager) mContext.getSystemService(CONNECTIVITY_SERVICE);
+            NetworkInfo wifi = connManager.getActiveNetworkInfo();
+            Log.i(TAG,"  "+wifi.getExtraInfo() + "\n   " +
+            wifi.getState().toString() + "\n   " +
+            wifi.getSubtypeName() + "\n   " +
+            wifi.getDetailedState().toString() + "\n   ");
+            if (wifi.isConnectedOrConnecting()) {
                 mContext.setStatus(ssid, isInternetAvailable() ? "connected" : "internet failure");
             } else {
                 mContext.setStatus(ssid, "connection failure");
@@ -70,12 +74,13 @@ public class ConnectionTask extends AsyncTask<String, Integer, Long> {
             Log.e(TAG, ex.getMessage());
             Log.e(TAG, ex.toString());
         }
-        return null;
+        return "OK";
     }
 
+    @Override
     protected void onPostExecute(String result) {
-       Log.i(TAG, "Connection test onPostExecute");
-        mContext.wifiAdapter.notifyDataSetChanged();
+       Log.i(TAG, "Connection test onPostExecute: "+((result == null) ? "fail" : result));
+       mContext.wifiAdapter.notifyDataSetChanged();
     }
 
 

@@ -37,8 +37,10 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
     @Override
     public View getView(int position, View convertView, @NonNull ViewGroup parent) {
 
-        HashMap<String, String> Wifidata = getItem(position);
-
+        HashMap<String, String> wifiData = getItem(position);
+        if (wifiData == null){
+            wifiData = new HashMap<>();
+        }
         if (convertView == null) {
             convertView = LayoutInflater.from(getContext()).inflate(R.layout.wifiitem, parent, false);
         }
@@ -49,15 +51,15 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
 
         ImageView complete = (ImageView) convertView.findViewById(R.id.strength);
 
-        String ssid_value = Wifidata.get(WifiAdapter.SSID);
+        String ssid_value = wifiData.get(WifiAdapter.SSID);
         ssid.setText(ssid_value  != null ? ssid_value : "Empty");
-        String level_value = Wifidata.get(WifiAdapter.LEVEL);
-        tvLevel.setText("Wifi level " + (level_value != null ? level_value : "-1"));
-        capability.setText("capabilities " + Wifidata.get(WifiAdapter.CAPABILITIES));
-        bssid.setText(Wifidata.get(WifiAdapter.STATUS));
+        String level_value = wifiData.get(WifiAdapter.LEVEL);
+        tvLevel.setText(String.format("Wifi level %s", level_value != null ? level_value : "-1"));
+        capability.setText(String.format("capabilities %s", wifiData.get(WifiAdapter.CAPABILITIES)));
+        bssid.setText(wifiData.get(WifiAdapter.STATUS));
 
 
-        int level = Integer.parseInt(Wifidata.get(WifiAdapter.LEVEL));
+        int level = Integer.parseInt(wifiData.get(WifiAdapter.LEVEL));
         if (level <= -70) {
             complete.setImageResource(R.drawable.ic_no_wifi_white);
         } else if (level <= -60) {
