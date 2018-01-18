@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
     static String SECURITY_OPEN = "open";
     static String PENDING = "pending...";
     static String[] SECURITY_TYPE_LIST = {"WPA", "WPA", "WEP", "IEEE8021X"};
+    static String STATE_CHEKING = "connection testing...";
 
     WifiAdapter(Context context,
                 ArrayList<HashMap<String, String>> wifiList) {
@@ -47,7 +49,7 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
         TextView ssid = (TextView) convertView.findViewById(R.id.ssid);
         TextView tvLevel = (TextView) convertView.findViewById(R.id.level);
         TextView capability = (TextView) convertView.findViewById(R.id.capabilities);
-        TextView bssid = (TextView) convertView.findViewById(R.id.bssid);
+        TextView status = (TextView) convertView.findViewById(R.id.bssid);
 
         ImageView complete = (ImageView) convertView.findViewById(R.id.strength);
 
@@ -56,8 +58,15 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
         String level_value = wifiData.get(WifiAdapter.LEVEL);
         tvLevel.setText(String.format("Wifi level %s", level_value != null ? level_value : "-1"));
         capability.setText(String.format("capabilities %s", wifiData.get(WifiAdapter.CAPABILITIES)));
-        bssid.setText(wifiData.get(WifiAdapter.STATUS));
+        status.setText(wifiData.get(WifiAdapter.STATUS));
 
+        ProgressBar progress = (ProgressBar) convertView.findViewById(R.id.progress);
+        if (WifiAdapter.STATUS.equals(WifiAdapter.STATE_CHEKING)) {
+            progress.setVisibility(View.VISIBLE);
+        }
+        else {
+            progress.setVisibility(View.INVISIBLE);
+        }
 
         int level = Integer.parseInt(wifiData.get(WifiAdapter.LEVEL));
         if (level <= -70) {

@@ -80,13 +80,15 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
     }
 
     private SharedPreferences getPreference() {
-        return  mContext.getSharedPreferences(
+        return mContext.getSharedPreferences(
                 mContext.getString(R.string.results_holder), Context.MODE_PRIVATE);
     }
 
     private void putForProcessing(JSONObject entry) {
         //store results before sending (will be re-sanded next time, if send will file)
-        if (entry == null) { return; }
+        if (entry == null) {
+            return;
+        }
         SharedPreferences sharedPref = getPreference();
         SharedPreferences.Editor editor = sharedPref.edit();
         String key = Long.toString(System.currentTimeMillis());
@@ -95,32 +97,10 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
         editor.apply();
     }
 
-    private HttpURLConnection getConnection( URL url){
-        HttpURLConnection conn;
-        try {
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(5000);
-            conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            conn.setDoOutput(true);
-            conn.setDoInput(true);
-            conn.setRequestMethod("POST");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-        return conn;
-    }
-
     @Override
     protected String doInBackground(Void... params) {
         putForProcessing(collectResults());
-        URL url;
-        try {
-            url = new URL(mContext.getString(R.string.service_uri));
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-            return null;
-        }
+        String url = mContext.getString(R.string.service_uri);
         turnOffWifi();
         Log.d(TAG, "Send results");
         SharedPreferences preference = getPreference();
@@ -128,36 +108,11 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
             return null;
         }
         SharedPreferences.Editor editor = preference.edit();
-        for (Map.Entry<String,?> result: preference.getAll().entrySet()){
-            try {
-                HttpURLConnection conn = getConnection(url);
-                if (conn == null) { continue; }
-                OutputStream os = conn.getOutputStream();
-                os.write(((String) result.getValue()).getBytes("UTF-8"));
-                os.close();
-
+        for (Map.Entry<String, ?> result : preference.getAll().entrySet()) {
+            String playload = (String) result.getValue();
+            Integer responseCode = HttpHelper.post(url, playload);
+            if (responseCode != null && responseCode.intValue() == 200) {
                 editor.remove(result.getKey());
-                Log.i(TAG,"Submit:"+ result.getValue());
-                //-- debug -------------------------------------------------------------------------
-                BufferedReader reader;
-                StringBuilder stringBuilder;
-
-                reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                stringBuilder = new StringBuilder();
-
-                String line;
-                while ((line = reader.readLine()) != null)
-                {
-                    stringBuilder.append(line).append("\n");
-                }
-                Log.i(TAG, "SERVER ANSWER:" + conn.getResponseMessage());
-                Log.i(TAG, url.toString());
-                Log.i(TAG, stringBuilder.toString());
-                //-- end debug ---------------------------------------------------------------------
-
-                conn.disconnect();
-            } catch (IOException e) {
-                e.printStackTrace();
             }
         }
         editor.apply();
@@ -166,7 +121,7 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
 
     @Override
     protected void onPostExecute(String result) {
-        Log.i(TAG, "Connection test onPostExecute:" +((result == null) ? "fail" : result));
+        Log.i(TAG, "Connection test onPostExecute:" + ((result == null) ? "fail" : result));
         Toast.makeText(mContext, "Result is submitted", Toast.LENGTH_SHORT).show();
     }
 }

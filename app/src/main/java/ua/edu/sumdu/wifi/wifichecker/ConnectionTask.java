@@ -8,12 +8,10 @@ import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.content.Context.WIFI_SERVICE;
-
+import static android.os.SystemClock.sleep;
 
 public class ConnectionTask extends AsyncTask<String, Integer, String> {
 
@@ -25,14 +23,9 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
     // https://stackoverflow.com/questions/9570237/android-check-internet-connection
     private boolean isInternetAvailable() {
         Log.i(TAG, "Detecting an internet");
-        try {
-            final InetAddress address = InetAddress.getByName("www.google.com");
-            Log.i(TAG, "adress: "+address.toString());
-            return !address.equals("");
-        } catch (UnknownHostException e) {
-            /* Log error */
-        }
-        return false;
+        String random = Long.toString(System.currentTimeMillis());
+        Integer responseCode = HttpHelper.post(mContext.getString(R.string.ping_url)+random, null);
+        return responseCode != null && responseCode == 200;
     }
 
     ConnectionTask(ScrollingActivity context)
@@ -45,7 +38,7 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
         String ssid = params[0];
         Log.i(TAG, "Start checking task for "+ssid);
         try {
-            mContext.setStatus(ssid, "connection testing...");
+            mContext.setStatus(ssid, WifiAdapter.STATE_CHEKING);
             WifiManager wifiManager = (WifiManager) mContext.getApplicationContext().getSystemService(WIFI_SERVICE);
             WifiConfiguration wifiConfig = new WifiConfiguration();
             wifiConfig.SSID = String.format("\"%s\"", ssid);
@@ -60,11 +53,15 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
 
             ConnectivityManager connManager = (ConnectivityManager) mContext.getSystemService(CONNECTIVITY_SERVICE);
             NetworkInfo wifi = connManager.getActiveNetworkInfo();
+            //Wait while connecting...
+            while (wifi.isConnectedOrConnecting() && !wifi.isConnected()){
+                sleep(250);
+            }
             Log.i(TAG,"  "+wifi.getExtraInfo() + "\n   " +
-            wifi.getState().toString() + "\n   " +
-            wifi.getSubtypeName() + "\n   " +
-            wifi.getDetailedState().toString() + "\n   ");
-            if (wifi.isConnectedOrConnecting()) {
+                    wifi.getState().toString() + "\n   " +
+                    wifi.getSubtypeName() + "\n   " +
+                    wifi.getDetailedState().toString() + "\n   ");
+            if (wifi.isConnected()) {
                 mContext.setStatus(ssid, isInternetAvailable() ? "connected" : "internet failure");
             } else {
                 mContext.setStatus(ssid, "connection failure");
