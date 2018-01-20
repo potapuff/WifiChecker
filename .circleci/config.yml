@@ -8,9 +8,6 @@ jobs:
       JVM_OPTS: -Xmx3200m
     steps:
       - checkout
-      - fix_permission:
-          name: chmod permissions
-          command: sudo chmod +x ./gradlew
       - restore_cache:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}
       - run:
