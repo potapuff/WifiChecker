@@ -88,12 +88,13 @@ public class ScrollingActivity extends AppCompatActivity {
         }
     };
 
-    public void setStatus(String ssid, String status) {
+    public void setStatus(String ssid, String status, String debug) {
         for (HashMap<String, String> wifi : WifiList) {
             String current_ssid = wifi.get(WifiAdapter.SSID);
             if (current_ssid.equals(ssid)) {
                 Log.i(TAG,"updates "+ ssid+" status to "+status);
                 wifi.put(WifiAdapter.STATUS, status);
+                wifi.put(WifiAdapter.DEBUG, debug == null ? "" : debug);
             }
         }
     }
@@ -169,7 +170,7 @@ public class ScrollingActivity extends AppCompatActivity {
             if (security.equals(WifiAdapter.SECURITY_OPEN)) {
                 new ConnectionTask(ScrollingActivity.this).executeOnExecutor(AsyncTask.SERIAL_EXECUTOR, ssid);
             } else {
-                setStatus(ssid, "require password");
+                setStatus(ssid, "require password","");
                 Log.i(TAG, "Skip wifi with " + security);
             }
         }

@@ -1,6 +1,7 @@
 package ua.edu.sumdu.wifi.wifichecker;
 
 import android.util.Log;
+import android.util.Pair;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,9 +26,9 @@ class HttpHelper {
         return conn;
     }
 
-    static Integer post(String address, String playload) {
+    static Pair<Integer, String> post(String address, String playload) {
         HttpURLConnection conn = null;
-        Integer responseCode = null;
+        Pair <Integer, String> response;
         try {
             URL url = new URL(address);
             conn = HttpHelper.getConnection(url);
@@ -53,16 +54,17 @@ class HttpHelper {
             Log.d(TAG, url.toString());
             Log.d(TAG, stringBuilder.toString());
             //-- end debug ---------------------------------------------------------------------
-            responseCode = conn.getResponseCode();
+            response = new Pair(conn.getResponseCode(), line);
         } catch (MalformedURLException e) {
             e.printStackTrace();
+            response = new Pair(500, Util.exceptionToString(e));
         } catch (IOException e) {
-            e.printStackTrace();
+            response = new Pair(500, Util.exceptionToString(e));
         } finally {
             if (conn != null) {
                 conn.disconnect();
             }
         }
-        return responseCode;
+        return response;
     }
 }

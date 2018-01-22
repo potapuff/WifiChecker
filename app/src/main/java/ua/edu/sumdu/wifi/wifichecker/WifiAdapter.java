@@ -22,8 +22,9 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
     static String SECURITY = "security";
     static String SECURITY_OPEN = "open";
     static String PENDING = "pending...";
+    static String DEBUG = "debug";
     static String[] SECURITY_TYPE_LIST = {"WPA", "WPA", "WEP", "IEEE8021X"};
-    static String STATE_CHEKING = "connection testing...";
+    static String STATE_CHECKING = "connection testing...";
 
     WifiAdapter(Context context,
                 ArrayList<HashMap<String, String>> wifiList) {
@@ -61,7 +62,7 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
         status.setText(wifiData.get(WifiAdapter.STATUS));
 
         ProgressBar progress = (ProgressBar) convertView.findViewById(R.id.progress);
-        if (WifiAdapter.STATUS.equals(WifiAdapter.STATE_CHEKING)) {
+        if (WifiAdapter.STATUS.equals(WifiAdapter.STATE_CHECKING)) {
             progress.setVisibility(View.VISIBLE);
         }
         else {

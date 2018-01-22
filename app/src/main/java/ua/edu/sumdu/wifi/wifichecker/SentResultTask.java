@@ -7,6 +7,7 @@ import android.net.ConnectivityManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.util.Log;
+import android.util.Pair;
 import android.widget.Toast;
 
 import com.google.android.gms.iid.InstanceID;
@@ -110,8 +111,8 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
         SharedPreferences.Editor editor = preference.edit();
         for (Map.Entry<String, ?> result : preference.getAll().entrySet()) {
             String playload = (String) result.getValue();
-            Integer responseCode = HttpHelper.post(url, playload);
-            if (responseCode != null && responseCode.intValue() == 200) {
+            Pair<Integer, String> response = HttpHelper.post(url, playload);
+            if (response.first != null && response.first == 200) {
                 editor.remove(result.getKey());
             }
         }
