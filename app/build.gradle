@@ -4,7 +4,9 @@ android {
     compileSdkVersion 25
     defaultConfig {
         applicationId "ua.edu.sumdu.wifi.wifichecker"
-        minSdkVersion 15
+        minSdkVersion 23 //TODO reduce target SDK version
+                         // Was 15, now 21 - required by progress-bar style
+                         // WAS 21, now 23 onnManager.getActiveNetwork()
         targetSdkVersion 25
         versionCode 1
         versionName "1.0"
@@ -25,6 +27,7 @@ dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:25.2.0'
     implementation 'com.android.support:design:25.+'
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
     compile 'com.google.android.gms:play-services-iid:11.+'
     testImplementation 'junit:junit:4.12'
     compile 'com.techibi:vibwifi_lib:0.1.1'

@@ -4,36 +4,25 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
-import android.net.wifi.WifiManager;
+import android.net.NetworkInfo;
+import android.net.wifi.WifiInfo;
 import android.os.AsyncTask;
 import android.util.Log;
-import android.util.Pair;
-import android.widget.Toast;
-
 import com.google.android.gms.iid.InstanceID;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static android.content.Context.WIFI_SERVICE;
+import static android.os.SystemClock.sleep;
 
 public class SentResultTask extends AsyncTask<Void, String, String> {
 
-    private final String TAG = "wifichecker:SEND";
+    private final String TAG = "TASK:SEND";
 
     @SuppressLint("StaticFieldLeak")
     private ScrollingActivity mContext;
@@ -48,7 +37,7 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
         JSONObject main = new JSONObject();
         try {
             JSONArray wifis = new JSONArray();
-            for (HashMap<String, String> wifi : mContext.WifiList) {
+            for (HashMap<String, String> wifi : mContext.wifiList) {
                 JSONObject current = new JSONObject();
                 for (String key : wifi.keySet()) {
                     current.put(key, wifi.get(key));
@@ -66,25 +55,32 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
         return (main.length() > 0) ? main : null;
     }
 
-    private void turnOffWifi() {
-        //Send result data via moblie internet
+    /** try to activate network for sending results */
+    private void enableNetwork() {
         Context app_context = mContext.getApplicationContext();
-        WifiManager wifi = (WifiManager) app_context.getSystemService(WIFI_SERVICE);
-        if (wifi != null) {
-            wifi.setWifiEnabled(false);
-        }
         ConnectivityManager connectivityManager =
                 (ConnectivityManager) app_context.getSystemService(Context.CONNECTIVITY_SERVICE);
         if (connectivityManager != null) {
-            connectivityManager.getActiveNetworkInfo();
+            NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+            int tries = 50;
+            while (tries > 0  && (networkInfo == null || networkInfo.getState() == NetworkInfo.State.CONNECTING)) {
+                sleep(250);
+                tries -= 1;
+                networkInfo = connectivityManager.getActiveNetworkInfo();
+            }
         }
     }
 
+    /** Storage for results of investigation.
+     *  If we have problem with sending resluts - we able send it later
+     *  TODO #2 : show number of unsended results in app-toolbar. Add button to sent this results
+     */
     private SharedPreferences getPreference() {
         return mContext.getSharedPreferences(
                 mContext.getString(R.string.results_holder), Context.MODE_PRIVATE);
     }
 
+    /** Add current result to persisten storage */
     private void putForProcessing(JSONObject entry) {
         //store results before sending (will be re-sanded next time, if send will file)
         if (entry == null) {
@@ -100,10 +96,10 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
 
     @Override
     protected String doInBackground(Void... params) {
+        Log.i(TAG, " Send results");
         putForProcessing(collectResults());
         String url = mContext.getString(R.string.service_uri);
-        turnOffWifi();
-        Log.d(TAG, "Send results");
+        enableNetwork();
         SharedPreferences preference = getPreference();
         if (preference == null) {
             return null;
@@ -111,8 +107,9 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
         SharedPreferences.Editor editor = preference.edit();
         for (Map.Entry<String, ?> result : preference.getAll().entrySet()) {
             String playload = (String) result.getValue();
-            Pair<Integer, String> response = HttpHelper.post(url, playload);
-            if (response.first != null && response.first == 200) {
+            HttpPostHelper response = new HttpPostHelper(url, playload);
+            if (response.isSuccessful()) {
+                //Remove from persistent storage only on successful sending
                 editor.remove(result.getKey());
             }
         }
@@ -122,7 +119,7 @@ public class SentResultTask extends AsyncTask<Void, String, String> {
 
     @Override
     protected void onPostExecute(String result) {
-        Log.i(TAG, "Connection test onPostExecute:" + ((result == null) ? "fail" : result));
-        Toast.makeText(mContext, "Result is submitted", Toast.LENGTH_SHORT).show();
+        Log.d(TAG, "Connection test onPostExecute:" + ((result == null) ? "fail" : result));
+        mContext.enableState(ScrollingActivity.State.ShowReset);
     }
 }

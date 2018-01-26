@@ -13,18 +13,20 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+//TODO implement performance  best practices (caching, static tag etc.)
 public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
 
-    static String SSID = "SSID";
-    static String LEVEL = "level";
-    static String CAPABILITIES = "capabilities";
-    static String STATUS = "status";
-    static String SECURITY = "security";
-    static String SECURITY_OPEN = "open";
-    static String PENDING = "pending...";
-    static String DEBUG = "debug";
-    static String[] SECURITY_TYPE_LIST = {"WPA", "WPA", "WEP", "IEEE8021X"};
-    static String STATE_CHECKING = "connection testing...";
+    static final String NO_INTERNET = "No internet";
+    static final String SSID = "SSID";
+    static final String LEVEL = "level";
+    static final String CAPABILITIES = "capabilities";
+    static final String STATUS = "status";
+    static final String SECURITY = "security";
+    static final String SECURITY_OPEN = "open";
+    static final String PENDING = "pending...";
+    static final String DEBUG = "debug";
+    static final String[] SECURITY_TYPE_LIST = {"WPA", "WPA", "WEP", "IEEE8021X"};
+    static final String STATE_CHECKING = "connection testing...";
 
     WifiAdapter(Context context,
                 ArrayList<HashMap<String, String>> wifiList) {
@@ -48,38 +50,38 @@ public class WifiAdapter extends ArrayAdapter<HashMap<String, String>> {
             convertView = LayoutInflater.from(getContext()).inflate(R.layout.wifiitem, parent, false);
         }
         TextView ssid = (TextView) convertView.findViewById(R.id.ssid);
-        TextView tvLevel = (TextView) convertView.findViewById(R.id.level);
-        TextView capability = (TextView) convertView.findViewById(R.id.capabilities);
-        TextView status = (TextView) convertView.findViewById(R.id.bssid);
+        TextView status = (TextView) convertView.findViewById(R.id.status);
 
         ImageView complete = (ImageView) convertView.findViewById(R.id.strength);
 
         String ssid_value = wifiData.get(WifiAdapter.SSID);
         ssid.setText(ssid_value  != null ? ssid_value : "Empty");
-        String level_value = wifiData.get(WifiAdapter.LEVEL);
-        tvLevel.setText(String.format("Wifi level %s", level_value != null ? level_value : "-1"));
-        capability.setText(String.format("capabilities %s", wifiData.get(WifiAdapter.CAPABILITIES)));
         status.setText(wifiData.get(WifiAdapter.STATUS));
 
         ProgressBar progress = (ProgressBar) convertView.findViewById(R.id.progress);
+        //TODO fix progressbar  - it does'n work
+        //TODO - we able use show real progress from Connection Test task
         if (WifiAdapter.STATUS.equals(WifiAdapter.STATE_CHECKING)) {
             progress.setVisibility(View.VISIBLE);
         }
         else {
-            progress.setVisibility(View.INVISIBLE);
+            progress.setVisibility(View.GONE);
         }
 
-        int level = Integer.parseInt(wifiData.get(WifiAdapter.LEVEL));
-        if (level <= -70) {
-            complete.setImageResource(R.drawable.ic_no_wifi_white);
-        } else if (level <= -60) {
-            complete.setImageResource(R.drawable.ic_quat_wifi_white);
-        } else if (level <= -40) {
-            complete.setImageResource(R.drawable.ic_half_wifi_white);
-        } else if (level <= -30) {
-            complete.setImageResource(R.drawable.ic_full_wifi_white);
+        if (wifiData.get(WifiAdapter.SECURITY).equals(WifiAdapter.SECURITY_OPEN)){
+            int level = Integer.parseInt(wifiData.get(WifiAdapter.LEVEL));
+            if (level <= -70) {
+                complete.setImageResource(R.drawable.no_wifi);
+            } else if (level <= -60) {
+                complete.setImageResource(R.drawable.quat_wifi);
+            } else if (level <= -40) {
+                complete.setImageResource(R.drawable.half_wifi);
+            } else if (level <= -30) {
+                complete.setImageResource(R.drawable.full_wifi);
+            }
+        } else{
+            complete.setImageResource(R.drawable.lock);
         }
-
 
         return convertView;
 

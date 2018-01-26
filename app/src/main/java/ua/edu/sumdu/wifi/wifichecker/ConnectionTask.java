@@ -2,13 +2,15 @@ package ua.edu.sumdu.wifi.wifichecker;
 
 import android.annotation.SuppressLint;
 import android.net.ConnectivityManager;
+import android.net.Network;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiConfiguration;
+import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.util.Log;
 import android.util.Pair;
-
+import java.util.List;
 
 import static android.content.Context.CONNECTIVITY_SERVICE;
 import static android.content.Context.WIFI_SERVICE;
@@ -16,70 +18,123 @@ import static android.os.SystemClock.sleep;
 
 public class ConnectionTask extends AsyncTask<String, Integer, String> {
 
-    private final String TAG = "wifichecker:TASK";
+    // Some code is adopted from io.particle.android.sdk.utils;
+    private final String TAG = "TASK:TEST NETWORK";
+    private final int MAX_TRIES = 100; //*0.25 wait for connection
 
     @SuppressLint("StaticFieldLeak")
     private ScrollingActivity mContext;
-
-    // https://stackoverflow.com/questions/9570237/android-check-internet-connection
-    private Pair<Integer,String> isInternetAvailable() {
-        Log.i(TAG, "Detecting an internet");
-        String random = Long.toString(System.currentTimeMillis());
-        Pair<Integer,String> response = HttpHelper.post(mContext.getString(R.string.ping_url)+random, null);
-        return response;
-    }
+    private WifiManager wifiManager;
 
     ConnectionTask(ScrollingActivity context)
     {
         mContext = context;
     }
 
+    private int getNetworkId(String ssid){
+        String quoteSSID = String.format("\"%s\"", ssid);
+        int netId = -1;
+        List<WifiConfiguration> list = wifiManager.getConfiguredNetworks();
+        if (list != null) {
+            for (WifiConfiguration i : list) {
+                if (i.SSID != null && i.SSID.equals(quoteSSID)) {
+                    netId = i.networkId;
+                    break;
+                }
+            }
+        }
+        //Network not found in pre-configured
+        if (netId == -1){
+            WifiConfiguration wifiConfig = new WifiConfiguration();
+            wifiConfig.SSID = quoteSSID;
+            wifiConfig.preSharedKey = String.format("\"%s\"", "");
+            wifiConfig.allowedKeyManagement.set(WifiConfiguration.KeyMgmt.NONE);
+            netId = wifiManager.addNetwork(wifiConfig);
+        }
+        return netId;
+    }
+
+    private void initManager(){
+        if (wifiManager == null) {
+            wifiManager = (WifiManager) mContext.getApplicationContext().getSystemService(WIFI_SERVICE);
+        }
+        if (wifiManager != null && !wifiManager.isWifiEnabled()) {
+            wifiManager.setWifiEnabled(true);
+        }
+    }
+
+    /** Try to find network by network SSID */
+    private Pair<Network,NetworkInfo> getNetworkForSSID(String ssid) {
+        ConnectivityManager connectivityManager = (ConnectivityManager) mContext.getSystemService(CONNECTIVITY_SERVICE);
+        if (connectivityManager == null) {
+            return null;
+        }
+        String quoteSSID = String.format("\"%s\"", ssid);
+        for (Network network : connectivityManager.getAllNetworks()){
+            NetworkInfo networkInfo = connectivityManager.getNetworkInfo(network);
+            if (networkInfo.getExtraInfo().equals(quoteSSID)){
+                return new Pair<>(network,networkInfo);
+            }
+        }
+        return null;
+    }
+
     @Override
     protected String doInBackground(String... params) {
         String ssid = params[0];
-        Log.i(TAG, "Start checking task for "+ssid);
+        String quoteSSID = String.format("\"%s\"", ssid);
+        Log.i(TAG, "START TASK: checking  "+ssid);
         try {
-            mContext.setStatus(ssid, WifiAdapter.STATE_CHECKING, "");
-            WifiManager wifiManager = (WifiManager) mContext.getApplicationContext().getSystemService(WIFI_SERVICE);
-            WifiConfiguration wifiConfig = new WifiConfiguration();
-            wifiConfig.SSID = String.format("\"%s\"", ssid);
-            wifiConfig.preSharedKey = String.format("\"%s\"", "");
+            //TODO: move setWifi Status to publish progress;
+            mContext.setWifiStatus(ssid, WifiAdapter.STATE_CHECKING, "");
+            publishProgress(1);
+            initManager();
+            int networkId = getNetworkId(ssid);
+            if (networkId != -1) {
+                wifiManager.disconnect();
+                wifiManager.enableNetwork(networkId, true);
+                wifiManager.reconnect();
+            }
 
-            wifiManager.setWifiEnabled(true);
-            Log.i(TAG, "Try connect to " + ssid);
-            int netId = wifiManager.addNetwork(wifiConfig);
-            wifiManager.disconnect();
-            wifiManager.enableNetwork(netId, true);
-            wifiManager.reconnect();
-
-            ConnectivityManager connManager = (ConnectivityManager) mContext.getSystemService(CONNECTIVITY_SERVICE);
-            int tries = 20;
-            NetworkInfo wifi;
-            while ((wifi = connManager.getActiveNetworkInfo()) == null && tries > 0) {
-                Log.d(TAG, "wait for connection init ...");
+            int tries = MAX_TRIES; //*0.25 = 25 seconds per network
+            WifiInfo wifiInfo = wifiManager.getConnectionInfo();
+            Log.d(TAG, "===============================");
+            //TODO: добавить нотификацию из цикла with publishProgress(1);
+            while (tries > 0  &&
+                    ( wifiInfo == null ||
+                      !wifiInfo.getSSID().equals(quoteSSID) ||
+                      WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.CONNECTING
+                      //|| WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.OBTAINING_IPADDR
+                    )
+                   ){
+                wifiInfo = wifiManager.getConnectionInfo();
+                Log.d(TAG, wifiInfo.getSSID()+"("+WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()).toString()+"):"+Integer.toString(tries));
+                sleep(250);
                 tries -= 1;
-                sleep(500);
             }
-            //Wait while connecting...
-            if (wifi != null) {
-                while (wifi.isConnectedOrConnecting() && !wifi.isConnected() && tries > 0) {
-                    Log.d(TAG, "wait for connection ...");
-                    tries -= 1;
-                    sleep(500);
-                }
+
+            Pair <Network, NetworkInfo > info = getNetworkForSSID(ssid);
+            if (info == null ) {
+                Log.d(TAG, "Connection falilure (by SSID)");
+                //TODO: move statuses strings to resource file
+                mContext.setWifiStatus(ssid, "connection failure", "fail to add network");
+                return "FAIL";
             }
-            Log.i(TAG,"  "+wifi.getExtraInfo() + "\n   " +
-                    wifi.getState().toString() + "\n   " +
-                    wifi.getSubtypeName() + "\n   " +
-                    wifi.getDetailedState().toString() + "\n   ");
-            if (wifi != null && wifi.isConnected()) {
-                Pair<Integer,String> pair =  isInternetAvailable();
-                mContext.setStatus(ssid,  pair.first == 200 ? "connected" : "internet failure", pair.second);
+            Network network = info.first;
+            NetworkInfo networkInfo = info.second;
+
+            if (networkInfo.isConnected()) {
+                Log.d(TAG, "Detecting an internet");
+                String random = Long.toString(System.currentTimeMillis());
+                HttpPostHelper request = new HttpPostHelper(network, mContext.getString(R.string.ping_url)+random, null);
+                mContext.setWifiStatus(ssid, request.isSuccessful() ? "connected" : "internet failure", request.getBody());
             } else {
-                mContext.setStatus(ssid, "connection failure", wifi.getDetailedState().toString());
+                mContext.setWifiStatus(ssid, "connection failure", networkInfo.getDetailedState().toString());
             }
-        } catch (NullPointerException  ex){
-            mContext.setStatus(ssid, "device error", Util.exceptionToString(ex));
+
+            publishProgress(100);
+        } catch (Exception  ex){
+            mContext.setWifiStatus(ssid, "device error", Util.exceptionToString(ex));
             Log.e(TAG, ex.getMessage());
             Log.e(TAG, ex.toString());
         }
@@ -87,8 +142,15 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
     }
 
     @Override
+    protected void onProgressUpdate(Integer... values) {
+        super.onProgressUpdate(values);
+        Log.d(TAG, "Notify to update content in list!");
+        mContext.wifiAdapter.notifyDataSetChanged();
+    }
+
+    @Override
     protected void onPostExecute(String result) {
-       Log.i(TAG, "Connection test onPostExecute: "+((result == null) ? "fail" : result));
+       Log.d(TAG, "Connection test onPostExecute: "+((result == null) ? "fail" : result));
        mContext.wifiAdapter.notifyDataSetChanged();
     }
 

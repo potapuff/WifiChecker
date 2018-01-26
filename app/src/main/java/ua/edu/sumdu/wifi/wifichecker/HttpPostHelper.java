@@ -1,22 +1,27 @@
 package ua.edu.sumdu.wifi.wifichecker;
 
+import android.net.Network;
 import android.util.Log;
-import android.util.Pair;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 
-class HttpHelper {
+
+class HttpPostHelper {
 
     private static String TAG = "wifichecker:HttpHelper";
 
-    private static HttpURLConnection getConnection(URL url) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    private HttpURLConnection getConnection(URL url) throws IOException {
+        HttpURLConnection conn;
+        if (network == null) {
+             conn = (HttpURLConnection) url.openConnection();
+        } else {
+             conn = (HttpURLConnection) network.openConnection(url);
+        }
         conn.setConnectTimeout(5000);
         conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
         conn.setDoOutput(true);
@@ -26,12 +31,20 @@ class HttpHelper {
         return conn;
     }
 
-    static Pair<Integer, String> post(String address, String playload) {
+    private Integer responseCode  = 500;
+    private String responseBody = null;
+    private Network network = null;
+
+    HttpPostHelper(String address, String playload){
+        this(null, address, playload);
+    }
+
+    HttpPostHelper(Network network, String address, String playload) {
+        this.network = network;
         HttpURLConnection conn = null;
-        Pair <Integer, String> response;
         try {
             URL url = new URL(address);
-            conn = HttpHelper.getConnection(url);
+            conn = getConnection(url);
             OutputStream os = conn.getOutputStream();
             if (playload != null) {
                 os.write(playload.getBytes("UTF-8"));
@@ -39,7 +52,7 @@ class HttpHelper {
             os.close();
 
             Log.d(TAG, "Submit:" + playload);
-            //-- debug -------------------------------------------------------------------------
+            // get reponce body
             BufferedReader reader;
             StringBuilder stringBuilder;
 
@@ -50,21 +63,35 @@ class HttpHelper {
             while ((line = reader.readLine()) != null) {
                 stringBuilder.append(line).append("\n");
             }
+
+            responseCode = conn.getResponseCode();
+            responseBody = stringBuilder.toString();
+
             Log.d(TAG, "SERVER ANSWER:" + conn.getResponseMessage());
             Log.d(TAG, url.toString());
-            Log.d(TAG, stringBuilder.toString());
-            //-- end debug ---------------------------------------------------------------------
-            response = new Pair(conn.getResponseCode(), line);
-        } catch (MalformedURLException e) {
+            Log.d(TAG, responseBody);
+
+        } catch (UnknownHostException ex) {
+            responseBody = WifiAdapter.NO_INTERNET;
+        } catch (Exception e) {
             e.printStackTrace();
-            response = new Pair(500, Util.exceptionToString(e));
-        } catch (IOException e) {
-            response = new Pair(500, Util.exceptionToString(e));
+            responseBody =  Util.exceptionToString(e);
         } finally {
             if (conn != null) {
                 conn.disconnect();
             }
         }
-        return response;
+    }
+
+    @SuppressWarnings("WeakerAccess")
+    Integer getCode(){
+       return responseCode == null ? 500 : responseCode;
+    }
+
+    String getBody(){
+        return responseBody == null ? "" : responseBody;
+    }
+    boolean isSuccessful(){
+        return getCode() == 200;
     }
 }
