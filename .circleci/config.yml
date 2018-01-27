@@ -6,8 +6,15 @@ jobs:
       - image: circleci/android:api-25-alpha
     environment:
       JVM_OPTS: -Xmx3200m
+      GHR_VERSION: "v0.5.4"
     steps:
-      - run: go get github.com/tcnksm/ghr
+      - run:
+          name: install-dependencies
+          command: |
+            curl -OL https://github.com/tcnksm/ghr/releases/download/$GHR_VERSION/ghr_"$GHR_VERSION"_linux_amd64.zip
+            unzip ghr_"$GHR_VERSION"_linux_amd64.zip
+            sudo mv ghr /usr/bin/
+            rm -f "ghr_"$GHR_VERSION"_linux_amd64.zip"
       - checkout
       - restore_cache:
           key: jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}
@@ -19,7 +26,7 @@ jobs:
             - ~/.gradle
           key: jars-{{ checksum "build.gradle" }}-{{ checksum  "app/build.gradle" }}
       - run: ./gradlew assemble
+      - run: ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME v0.1.$CIRCLE_BUILD_NUM app/build/outputs/apk/debug/*.apk || true
       - store_artifacts:
           path: app/build/outputs/apk/debug/
           destination: apk
-      - run: ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME v0.1.$CIRCLE_BUILD_NUM $CIRCLE_ARTIFACTS/ || true
