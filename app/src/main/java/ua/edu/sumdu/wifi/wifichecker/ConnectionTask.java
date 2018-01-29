@@ -20,7 +20,7 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
 
     // Some code is adopted from io.particle.android.sdk.utils;
     private final String TAG = "TASK:TEST NETWORK";
-    private final int MAX_TRIES = 100; //*0.25 wait for connection
+    private final int MAX_TRIES = 120; //*0.5 sec wait for connection 
 
     @SuppressLint("StaticFieldLeak")
     private ScrollingActivity mContext;
@@ -96,20 +96,20 @@ public class ConnectionTask extends AsyncTask<String, Integer, String> {
                 wifiManager.reconnect();
             }
 
-            int tries = MAX_TRIES; //*0.25 = 25 seconds per network
+            int tries = MAX_TRIES; //*0.5 = 60 seconds per network
             WifiInfo wifiInfo = wifiManager.getConnectionInfo();
             Log.d(TAG, "===============================");
             //TODO: добавить нотификацию из цикла with publishProgress(1);
             while (tries > 0  &&
                     ( wifiInfo == null ||
                       !wifiInfo.getSSID().equals(quoteSSID) ||
-                      WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.CONNECTING
-                      //|| WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.OBTAINING_IPADDR
+                      WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.CONNECTING ||
+                      WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()) == NetworkInfo.DetailedState.OBTAINING_IPADDR
                     )
                    ){
                 wifiInfo = wifiManager.getConnectionInfo();
                 Log.d(TAG, wifiInfo.getSSID()+"("+WifiInfo.getDetailedStateOf(wifiInfo.getSupplicantState()).toString()+"):"+Integer.toString(tries));
-                sleep(250);
+                sleep(500);
                 tries -= 1;
             }
 
